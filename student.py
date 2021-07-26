@@ -51,17 +51,23 @@ def transform(mode):
 class Network(nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv1 = nn.Conv2d(3, 6, 5)
+        self.conv1 = nn.Conv2d(3, 32, 5)
         self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(6, 16, 5)
-        self.fc1 = nn.Linear(2704, 120)
+        self.conv2 = nn.Conv2d(32, 32, 5, 2)
+        self.conv3 = nn.Conv2d(32, 148, 5, 2)
+        self.fc1 = nn.Linear(3700, 120)
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, 14)
         
     def forward(self, t):
         t = self.pool(F.relu(self.conv1(t)))
-        t = self.pool(F.relu(self.conv2(t)))
+        # print(t.size())
+        t = F.relu(self.conv2(t))
+        # print(t.size())
+        t = F.relu(self.conv3(t))
+        # print(t.size())
         t = torch.flatten(t, 1)
+        # print(t.size())
         t = F.relu(self.fc1(t))
         t = F.relu(self.fc2(t))
         t = self.fc3(t)
@@ -89,5 +95,5 @@ lossFunc = nn.CrossEntropyLoss()
 dataset = "./data"
 train_val_split = 0.8
 batch_size = 256
-epochs = 60
+epochs = 100
 optimiser = optim.Adam(net.parameters(), lr=0.001)
