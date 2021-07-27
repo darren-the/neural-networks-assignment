@@ -19,6 +19,8 @@ You may change this variable in the config.py file.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn.modules.batchnorm import BatchNorm2d
+from torch.nn.modules.conv import Conv2d
 import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
@@ -48,23 +50,69 @@ def transform(mode):
 ############################################################################
 ######   Define the Module to process the images and produce labels   ######
 ############################################################################
+class Block(nn.Module):
+    def __init__(self, in_channels, out_channels, stride=1):
+        super(Block, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        self.relu = nn.ReLU()
+        self.resize_dim = None
+        if in_channels != out_channels:  # or stride != 1
+            self.resize_dim = nn.Sequential(
+                Conv2d(in_channels, out_channels, kernel_size=1),
+                BatchNorm2d(out_channels)
+        )
+
+    def forward(self, t):
+        identity = t
+        t = self.relu(self.bn1(self.conv1(t)))
+        t = self.relu(self.bn2(self.conv2(t)))
+        if self.resize_dim is not None:
+            identity = self.resize_dim(identity)
+        t += identity
+        t = self.relu(t)
+        return t
+
 class Network(nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv1 = nn.Conv2d(3, 6, 5)
-        self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(6, 16, 5)
-        self.fc1 = nn.Linear(2704, 120)
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 14)
+        self.in_channels = 64
+        self.conv = nn.Conv2d(3, self.in_channels, kernel_size=7, stride=2, padding=3)
+        self.bn = BatchNorm2d(self.in_channels)
+        self.relu = nn.ReLU()
+        self.pool = nn.MaxPool2d(3, 2, 1)
         
+        # Residual Architecture
+        self.layer1 = self.create_layers(3, 64, 1)
+        self.layer2 = self.create_layers(4, 128, 2)
+        self.layer3 = self.create_layers(6, 256, 2)
+        self.layer4 = self.create_layers(3, 512, 2)
+
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc = nn.Linear(512, 14)    
+        
+    def create_layers(self, num_blocks, out_channels, stride):
+        layers = []
+        layers.append(Block(self.in_channels, out_channels, stride))
+        self.in_channels = out_channels
+        for _ in range(num_blocks - 1):
+            layers.append(Block(self.in_channels, out_channels))
+        return (nn.Sequential(*layers))
+    
     def forward(self, t):
-        t = self.pool(F.relu(self.conv1(t)))
-        t = self.pool(F.relu(self.conv2(t)))
-        t = torch.flatten(t, 1)
-        t = F.relu(self.fc1(t))
-        t = F.relu(self.fc2(t))
-        t = self.fc3(t)
+        t = self.conv(t)
+        t = self.bn(t)
+        t = self.relu(t)
+        t = self.pool(t)
+        t = self.layer1(t)
+        t = self.layer2(t)
+        t = self.layer3(t)
+        t = self.layer4(t)
+        t = self.avgpool(t)
+        t = nn.Flatten(t, 1)
+        t = self.fc(t)
         return t
 
 
