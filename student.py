@@ -115,7 +115,7 @@ class Network(nn.Module):
         t = self.layer3(t)
         t = self.layer4(t)
         t = self.avgpool(t)
-        t = nn.Flatten(t, 1)
+        t = torch.flatten(t, 1)
         t = self.fc(t)
         return t
 
