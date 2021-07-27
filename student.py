@@ -61,16 +61,20 @@ class Block(nn.Module):
         self.resize_dim = None
         if in_channels != out_channels:  # or stride != 1
             self.resize_dim = nn.Sequential(
-                Conv2d(in_channels, out_channels, kernel_size=1),
+                Conv2d(in_channels, out_channels, kernel_size=1, stride=stride),
                 BatchNorm2d(out_channels)
         )
 
     def forward(self, t):
-        identity = t
-        t = self.relu(self.bn1(self.conv1(t)))
-        t = self.relu(self.bn2(self.conv2(t)))
         if self.resize_dim is not None:
-            identity = self.resize_dim(identity)
+            identity = self.resize_dim(t)
+        else:
+            identity = t
+        t = self.conv1(t)
+        t = self.bn1(t)
+        t = self.relu(t)
+        t = self.conv2(t)
+        t = self.bn2(t)
         t += identity
         t = self.relu(t)
         return t
