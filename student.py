@@ -83,37 +83,37 @@ class Network(nn.Module):
     def __init__(self):
         super().__init__()
         self.in_channels = 64
-        self.conv = nn.Conv2d(3, self.in_channels, kernel_size=7, stride=2, padding=3)
-        self.bn = BatchNorm2d(self.in_channels)
+        self.conv1 = nn.Conv2d(3, self.in_channels, kernel_size=7, stride=2, padding=3)
+        self.bn1 = BatchNorm2d(self.in_channels)
         self.relu = nn.ReLU()
         self.pool = nn.MaxPool2d(3, 2, 1)
         
         # Residual Architecture
-        self.layer1 = self.create_layers(3, 32, 1)
-        self.layer2 = self.create_layers(4, 64, 2)
-        self.layer3 = self.create_layers(6, 128, 2)
-        self.layer4 = self.create_layers(3, 256, 2)
+        self.conv2 = self.create_blocks(3, 32, 1)
+        self.conv3 = self.create_blocks(4, 64, 2)
+        self.conv4 = self.create_blocks(6, 128, 2)
+        self.conv5 = self.create_blocks(3, 256, 2)
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(256, 14)    
         
-    def create_layers(self, num_blocks, out_channels, stride):
-        layers = []
-        layers.append(Block(self.in_channels, out_channels, stride))
+    def create_blocks(self, num_blocks, out_channels, stride):
+        blocks = []
+        blocks.append(Block(self.in_channels, out_channels, stride))
         self.in_channels = out_channels
         for _ in range(num_blocks - 1):
-            layers.append(Block(self.in_channels, out_channels))
-        return (nn.Sequential(*layers))
+            blocks.append(Block(self.in_channels, out_channels))
+        return (nn.Sequential(*blocks))
     
     def forward(self, t):
-        t = self.conv(t)
-        t = self.bn(t)
+        t = self.conv1(t)
+        t = self.bn1(t)
         t = self.relu(t)
         t = self.pool(t)
-        t = self.layer1(t)
-        t = self.layer2(t)
-        t = self.layer3(t)
-        t = self.layer4(t)
+        t = self.conv2(t)
+        t = self.conv3(t)
+        t = self.conv4(t)
+        t = self.conv5(t)
         t = self.avgpool(t)
         t = torch.flatten(t, 1)
         t = self.fc(t)
