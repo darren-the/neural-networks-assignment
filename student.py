@@ -89,13 +89,13 @@ class Network(nn.Module):
         self.pool = nn.MaxPool2d(3, 2, 1)
         
         # Residual Architecture
-        self.layer1 = self.create_layers(3, 64, 1)
-        self.layer2 = self.create_layers(4, 128, 2)
-        self.layer3 = self.create_layers(6, 256, 2)
-        self.layer4 = self.create_layers(3, 512, 2)
+        self.layer1 = self.create_layers(3, 32, 1)
+        self.layer2 = self.create_layers(4, 64, 2)
+        self.layer3 = self.create_layers(6, 128, 2)
+        self.layer4 = self.create_layers(3, 256, 2)
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(512, 14)    
+        self.fc = nn.Linear(256, 14)    
         
     def create_layers(self, num_blocks, out_channels, stride):
         layers = []
@@ -141,5 +141,5 @@ lossFunc = nn.CrossEntropyLoss()
 dataset = "./data"
 train_val_split = 0.8
 batch_size = 256
-epochs = 60
+epochs = 100
 optimiser = optim.Adam(net.parameters(), lr=0.001)
