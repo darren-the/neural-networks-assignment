@@ -43,7 +43,12 @@ def transform(mode):
     You may specify different transforms for training and testing
     """
     if mode == 'train':
-        return transforms.ToTensor()
+        return transforms.Compose([
+            # transforms.RandomHorizontalFlip(p=0.5),
+            # transforms.RandomVerticalFlip(p=0.5),
+            # transforms.RandomRotation(degrees=45),
+            transforms.ToTensor(),
+        ])
     elif mode == 'test':
         return transforms.ToTensor()
 
