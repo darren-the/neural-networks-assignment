@@ -56,8 +56,8 @@ base_model = [
     [6, 24, 2, 2, 3],
     [6, 40, 2, 2, 5],
     [6, 80, 3, 2, 3],
-    # [6, 112, 3, 1, 5],
-    # [6, 192, 4, 2, 5],
+    [6, 112, 3, 1, 5],
+    [6, 192, 4, 2, 5],
     # [6, 320, 1, 1, 3],
 ]
 
@@ -207,4 +207,4 @@ dataset = "./data"
 train_val_split = 0.8
 batch_size = 256
 epochs = 100
-optimiser = optim.SGD(net.parameters(), lr=0.001, momentum=0.95)
+optimiser = optim.Adam(net.parameters(), lr=0.001)
