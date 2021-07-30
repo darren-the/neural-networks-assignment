@@ -31,6 +31,49 @@ import torchvision.transforms as transforms
 Briefly describe how your program works, and explain any design and training
 decisions you made along the way.
 
+A 34-layer residual learning framework was implemented similar to that 
+suggested by (He and others, 2015) with the idea that large amounts of 
+convolutional layers could improve image-recognition accuracy. Firstly, the
+base architecture used for this task was inspired by VGG nets (Simonyan and 
+Zisserman, 2015) where blocks containing multiple conv layers are stacked, 
+filters are small (3x3) and the number of filters are doubled every few
+blocks while halving the spatial dimension. However, on its own the model 
+was able to achieve [acc%] training accuracy before it degraded entirely. 
+To counteract this, skip connections were added every two layers which
+essentially performed an identity mapping. This was the solution to the 
+degradation problem suggested by (He and others, 2015) and it allowed the
+model to achieve 100% training accuracy. 
+
+Being faced with a classification problem, softmax activations were applied 
+to the outputs which converts them into probabilities. Hence, a cross
+entropy loss function was ideal during training as it is able to capture the
+distance between these probabilities and the truth values for each category.
+Additionally, cross entropy loss heavily penalises misclassified inputs
+making it a preferred loss function over other common ones such as MSE.
+This difference is clear through the accuracy of the model on when using cross entropy loss as %d versus using MSE as %d.
+For the optimizer, Adan was used due to its two primary properties. One is 
+that it utilises the idea of momentum which speeds up convergence to minima 
+and two was that it incorporates an adaptive learning rate so manual tuning 
+is not required.
+
+Transformation that were used included random horizontal and vertical flips 
+as well as random rotations.
+
+Tuning metaparameters: Need to train a lot more
+
+The validation set was used to evaluate the model’s performance during 
+training which also helped in preventing overfitting.This was achieved by 
+identifying that a suitable number of epochs to train the model was roughly 
+[number]. After training the model too far beyond this point, the validation 
+accuracy would decline so it was key to abort training during the period of 
+time that it appeared to converge and stop improving.
+
+An additional enhancement that was used was batch normalization. This
+prevents the distributions of activations at each layer from varying too
+much allowing the network to train significantly faster at a consistent
+rate. [add comparison of training times]. It also is said to somewhat act 
+as a regularizer, eliminating the need for common regularization methods
+
 """
 
 ############################################################################
@@ -94,13 +137,13 @@ class Network(nn.Module):
         self.pool = nn.MaxPool2d(3, 2, 1)
         
         # Residual Architecture
-        self.conv2 = self.create_blocks(3, 32, 1)
-        self.conv3 = self.create_blocks(4, 64, 2)
-        self.conv4 = self.create_blocks(6, 128, 2)
-        self.conv5 = self.create_blocks(3, 256, 2)
+        self.conv2 = self.create_blocks(3, 48, 1)
+        self.conv3 = self.create_blocks(4, 96, 2)
+        self.conv4 = self.create_blocks(6, 192, 2)
+        self.conv5 = self.create_blocks(3, 384, 2)
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(256, 14)    
+        self.fc = nn.Linear(384, 14)    
         
     def create_blocks(self, num_blocks, out_channels, stride):
         blocks = []
