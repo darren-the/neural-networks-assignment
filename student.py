@@ -82,7 +82,7 @@ class Block(nn.Module):
 class Network(nn.Module):
     def __init__(self):
         super().__init__()
-        self.in_channels = 64
+        self.in_channels = 128
         self.conv = nn.Conv2d(3, self.in_channels, kernel_size=7, stride=2, padding=3)
         self.bn = BatchNorm2d(self.in_channels)
         self.relu = nn.ReLU()
@@ -90,7 +90,7 @@ class Network(nn.Module):
         
         # Residual Architecture
         self.layer1 = self.create_layers(3, 32, 1)
-        self.layer2 = self.create_layers(4, 64, 2)
+        self.layer2 = self.create_layers(4, 64, 1)
         self.layer3 = self.create_layers(6, 128, 2)
         self.layer4 = self.create_layers(3, 256, 2)
 
@@ -141,5 +141,5 @@ lossFunc = nn.CrossEntropyLoss()
 dataset = "./data"
 train_val_split = 0.8
 batch_size = 256
-epochs = 100
+epochs = 150
 optimiser = optim.Adam(net.parameters(), lr=0.001)
