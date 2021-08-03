@@ -26,10 +26,68 @@ import torchvision
 import torchvision.transforms as transforms
 
 """
+
    Answer to Question:
 
 Briefly describe how your program works, and explain any design and training
 decisions you made along the way.
+
+A 34-layer residual learning framework was implemented similar to that 
+suggested by (He and others, 2015) with the idea that large amounts of 
+convolutional layers could improve image-recognition accuracy. Firstly, the
+base architecture used for this task was inspired by VGG nets (Simonyan and 
+Zisserman, 2015) where blocks containing multiple conv layers are stacked, 
+filters are small (3x3) and the number of filters are doubled every few
+blocks while halving the spatial dimension. However, on its own the model 
+was able to achieve 88% training accuracy before it degraded entirely. 
+To counteract this, skip connections were added every two layers which
+essentially performed an identity mapping. This was the solution to the 
+degradation problem suggested by (He and others, 2015) and it allowed the
+model to achieve 100% training accuracy. 
+
+Being faced with a classification problem, softmax activations were applied 
+to the outputs which converts them into probabilities. Hence, a cross
+entropy loss function was ideal during training as it is able to capture the
+distance between these probabilities and the truth values for each category.
+Additionally, cross entropy loss heavily penalises misclassified inputs
+making it a preferred loss function over other common ones such as MSE.
+Using cross entropy loss improved accuracy of the model by 8-12%.
+
+For the optimizer, Adam was used due to its two primary properties. One is 
+that it utilises the idea of momentum which speeds up convergence to minima 
+and two was that it incorporates an adaptive learning rate so manual tuning 
+is not required.
+
+Transformation that were used included random horizontal and vertical flips 
+as well as random rotations.
+
+Tuning metaparameters: The batch size used for training the model only
+slightly affected the model accuracy, with smaller batches resulting in much
+longer training times. The batch size used for the final model was 256.
+
+The validation set was used to evaluate the model’s performance during 
+training which also helped in preventing overfitting. This was achieved by 
+identifying that a suitable number of epochs to train the model was roughly 
+100. After training the model too far beyond this point, the validation 
+accuracy would decline so it was key to abort training during the period of 
+time that it appeared to converge and stop improving.
+
+An additional enhancement that was used was batch normalization. This
+prevents the distributions of activations at each layer from varying too
+much allowing the network to train significantly faster (10% longer without batch
+normalization) at a consistent rate. Without batch normalization. It also is said 
+to somewhat act as a regularizer, eliminating the need for common regularization 
+methods
+
+Hyperparameters: Our model was based off of the ResNet-34 as described in the 
+paper, however to fine tune it for the application on hand, we measured the
+change in eval accuracy as we changed the number of hidden units in the first
+convolutional layer (before the residual blocks) and the properties of
+the residual blocks. After a grid search through these parameters, it was
+found that a stride of 1 applied to the first two residual blocks and a primary
+convolutional layer with 128 hidden units maximised accuracy on the validation set.
+This most likely allowed the model, which is already sufficiently deep, to extrapolate
+significant features that distinguish each of the characters.
 
 """
 
@@ -141,5 +199,5 @@ lossFunc = nn.CrossEntropyLoss()
 dataset = "./data"
 train_val_split = 0.8
 batch_size = 256
-epochs = 150
+epochs = 100
 optimiser = optim.Adam(net.parameters(), lr=0.001)
