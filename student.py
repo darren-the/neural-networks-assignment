@@ -111,12 +111,21 @@ def transform(mode):
 class Block(nn.Module):
     def __init__(self, in_channels, out_channels, stride=1):
         super(Block, self).__init__()
+
+        # 1st Convolutional Layer (3x3)
         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1)
         self.bn1 = nn.BatchNorm2d(out_channels)
+
+        # 2nd Convolutional Layer (3x3)
         self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1)
         self.bn2 = nn.BatchNorm2d(out_channels)
+
         self.relu = nn.ReLU()
         self.resize_dim = None
+
+        # Either if we half the input space for ex, 56x56 -> 28x28 (stride=2), or channels changes
+        # we need to adapt the Identity (skip connection) so it will be able to be added
+        # to the layer that's ahead
         if in_channels != out_channels:  # or stride != 1
             self.resize_dim = nn.Sequential(
                 Conv2d(in_channels, out_channels, kernel_size=1, stride=stride),
@@ -124,71 +133,84 @@ class Block(nn.Module):
         )
 
     def forward(self, t):
+
         if self.resize_dim is not None:
-            identity = self.resize_dim(t)
+            identity = self.resize_dim(t) # Remapping identity to match output channels
         else:
-            identity = t
-        t = self.conv1(t)
-        t = self.bn1(t)
-        t = self.relu(t)
-        t = self.conv2(t)
-        t = self.bn2(t)
-        t += identity
-        t = self.relu(t)
+            identity = t    # Otherwise, identity should be recalled from input
+
+        t = self.conv1(t)   # 1st Convolutional Layer
+        t = self.bn1(t)     # Batch Normalization
+        t = self.relu(t)    # ReLU activation
+        t = self.conv2(t)   # 2nd Convolutional Layer
+        t = self.bn2(t)     # Batch Normalization
+        t += identity       # Adapting the Identity
+        t = self.relu(t)    # ReLU activation
         return t
 
 class Network(nn.Module):
     def __init__(self):
         super().__init__()
         self.in_channels = 128
-        self.conv = nn.Conv2d(3, self.in_channels, kernel_size=7, stride=2, padding=3)
-        self.bn = BatchNorm2d(self.in_channels)
         self.relu = nn.ReLU()
-        self.pool = nn.MaxPool2d(3, 2, 1)
+
+        # 1st Convolutional Layer
+        self.conv = nn.Conv2d(3, self.in_channels, kernel_size=7, stride=2, padding=3)
+        
+        # Batch Normalization
+        self.bn = BatchNorm2d(self.in_channels)
+
+        # Max Pooling with 
+        self.pool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         
         # Residual Architecture
-        self.layer1 = self.create_layers(3, 32, 1)
+        self.layer1 = self.create_layers(3, 32, 1)  # Number of Blocks, Intermediate Channels, Stride
         self.layer2 = self.create_layers(4, 64, 1)
         self.layer3 = self.create_layers(6, 128, 2)
         self.layer4 = self.create_layers(3, 256, 2)
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(256, 14)    
+        self.fc = nn.Linear(256, 14)    # Output channels to prediction classes
         
+    # Function to create a residual block, with skip connection
     def create_layers(self, num_blocks, out_channels, stride):
         layers = []
         layers.append(Block(self.in_channels, out_channels, stride))
         self.in_channels = out_channels
+
+        # For first resnet layer no identity downsample is needed, since 
+        # stride = 1, and also same amount of channels.
         for _ in range(num_blocks - 1):
             layers.append(Block(self.in_channels, out_channels))
+
         return (nn.Sequential(*layers))
     
     def forward(self, t):
-        t = self.conv(t)
-        t = self.bn(t)
-        t = self.relu(t)
-        t = self.pool(t)
-        t = self.layer1(t)
-        t = self.layer2(t)
-        t = self.layer3(t)
-        t = self.layer4(t)
-        t = self.avgpool(t)
-        t = torch.flatten(t, 1)
-        t = self.fc(t)
+        t = self.conv(t)            # 1st Convolutional Layer
+        t = self.bn(t)              # Batch Normalization
+        t = self.relu(t)            # Apply ReLU activation
+        t = self.pool(t)            # Apply Max Pooling
+        t = self.layer1(t)          # Residual Layer 1 (Size 3)
+        t = self.layer2(t)          # Residual Layer 2 (Size 4)
+        t = self.layer3(t)          # Residual Layer 3 (Size 6)
+        t = self.layer4(t)          # Residual Layer 4 (Size 3)
+        t = self.avgpool(t)         # Average Pooling
+        t = torch.flatten(t, 1)     # Flatten Output
+        t = self.fc(t)              # Fully Connected Layer
         return t
 
 
-class loss(nn.Module):
-    """
-    Class for creating a custom loss function, if desired.
-    If you instead specify a standard loss function,
-    you can remove or comment out this class.
-    """
-    def __init__(self):
-        super(loss, self).__init__()
+# class loss(nn.Module):
+#     """
+#     Class for creating a custom loss function, if desired.
+#     If you instead specify a standard loss function,
+#     you can remove or comment out this class.
+#     """
+#     def __init__(self):
+#         super(loss, self).__init__()
 
-    def forward(self, output, target):
-        pass
+#     def forward(self, output, target):
+#         pass
 
 
 net = Network()
