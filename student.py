@@ -104,6 +104,15 @@ accuracy appeared to converge and stop improving.
 
 However, it is worth noting that overfitting was unlikely to occur anyway due
 to the skip connections and batch normalizations that were already implemented.
+
+References:
+
+Simonyan, K. and Zisserman, A. 2014, Very deep convolutional networks for large-scale 
+image recognition. Available from https://arxiv.org/abs/1409.1556. (Accessed
+4 Aug 2021)
+
+He, K., Zhang, X., Ren, S. and Sun, J. 2015, Deep Residual Learning for Image
+Recognition. Available from https://arxiv.org/abs/1512.03385. (Accessed 4 Aug 2021)
 """
 
 ############################################################################
