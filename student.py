@@ -32,54 +32,58 @@ import torchvision.transforms as transforms
 Briefly describe how your program works, and explain any design and training
 decisions you made along the way.
 
+Architecture:
 A 34-layer residual learning framework was implemented similar to that 
-suggested by (He and others, 2015) with the idea that large amounts of 
+suggested by (He and others, 2015) with the idea that larger numbers of 
 convolutional layers could improve image-recognition accuracy. Firstly, the
 base architecture used for this task was inspired by VGG nets (Simonyan and 
 Zisserman, 2015) where blocks containing multiple conv layers are stacked, 
 filters are small (3x3) and the number of filters are doubled every few
-blocks while halving the spatial dimension. However, on its own the model 
-was able to achieve 88% training accuracy before it degraded entirely. 
+blocks while halving the spatial dimension. However, on its own the model
+had subpar performance on the validation set, with accuracy fluctuating
+betwween 70% to 80% after 100 epochs. 
 To counteract this, skip connections were added every two layers which
 essentially performed an identity mapping. This was the solution to the 
-degradation problem suggested by (He and others, 2015) and it allowed the
-model to achieve 100% training accuracy. 
+potential degradation problem suggested by (He and others, 2015) and allowed
+the model to maintain an accuracy above 80%.
 
+An additional enhancement used was batch normalization. This
+prevents the distributions of activations at each layer from varying too
+much, allowing the network to train significantly faster (10% longer without batch
+normalization) at a consistent rate. It also is said to somewhat act as a 
+regularizer, eliminating the need for common regularization methods such as 
+dropout.
+
+Loss function and optimiser:
 Being faced with a classification problem, softmax activations were applied 
 to the outputs which converts them into probabilities. Hence, a cross
 entropy loss function was ideal during training as it is able to capture the
 distance between these probabilities and the truth values for each category.
 Additionally, cross entropy loss heavily penalises misclassified inputs
 making it a preferred loss function over other common ones such as MSE.
-Using cross entropy loss improved accuracy of the model by 8-12%.
 
 For the optimizer, Adam was used due to its two primary properties. One is 
 that it utilises the idea of momentum which speeds up convergence to minima 
 and two was that it incorporates an adaptive learning rate so manual tuning 
-is not required.
+is not as important.
 
-Transformation that were used included random horizontal and vertical flips 
-as well as random rotations.
+Transformations:
+Various transformations were tested with the hypothesis that it may help the
+model generalise with other validation sets.
+Random horizontal and vertical flips were the first transformations tested
+as it seemed plausible that characters could be portrayed facing several
+different directions. These however did not improve the validation accuracy and 
+limited it to roughly 81%. With similar reasoning, random rotations were also 
+tested which again reduced the model's validation performance. It seemed as
+though the model could already generalise sufficiently without the need of 
+any transformations.
 
-Tuning metaparameters: The batch size used for training the model only
-slightly affected the model accuracy, with smaller batches resulting in much
-longer training times. The batch size used for the final model was 256.
+Tuning metaparameters and other parameters: 
+The batch size used for training the model only slightly affected the model 
+accuracy, with smaller batches resulting in much longer training times. 
+The batch size used for the final model was 256.
 
-The validation set was used to evaluate the model’s performance during 
-training which also helped in preventing overfitting. This was achieved by 
-identifying that a suitable number of epochs to train the model was roughly 
-100. After training the model too far beyond this point, the validation 
-accuracy would decline so it was key to abort training during the period of 
-time that it appeared to converge and stop improving.
-
-An additional enhancement that was used was batch normalization. This
-prevents the distributions of activations at each layer from varying too
-much allowing the network to train significantly faster (10% longer without batch
-normalization) at a consistent rate. Without batch normalization. It also is said 
-to somewhat act as a regularizer, eliminating the need for common regularization 
-methods
-
-Hyperparameters: Our model was based off of the ResNet-34 as described in the 
+Our model was based off of the ResNet-34 as described in the 
 paper, however to fine tune it for the application on hand, we measured the
 change in eval accuracy as we changed the number of hidden units in the first
 convolutional layer (before the residual blocks) and the properties of
@@ -89,6 +93,17 @@ convolutional layer with 128 hidden units maximised accuracy on the validation s
 This most likely allowed the model, which is already sufficiently deep, to extrapolate
 significant features that distinguish each of the characters.
 
+Use of validation set:
+The validation set was used to evaluate the model’s performance during 
+training which also may have helped to avoid overfitting. This was achieved by 
+identifying that 100 epochs on average was suitable for training till the
+convergence of validation accuracy. After training the model too far beyond
+this point, the validation accuracy could decline due to overfitting. 
+So as a precaution, we stopped training during the period of time that the 
+accuracy appeared to converge and stop improving. 
+
+However, it is worth noting that overfitting was unlikely to occur anyway due
+to the skip connections and batch normalizations that were already implemented.
 """
 
 ############################################################################
@@ -109,6 +124,11 @@ def transform(mode):
 ######   Define the Module to process the images and produce labels   ######
 ############################################################################
 class Block(nn.Module):
+    '''
+    A residual block with 2 conv layers with relu activations. Also contains skip connection
+    that performs an identity mapping.
+    '''
+
     def __init__(self, in_channels, out_channels, stride=1):
         super(Block, self).__init__()
 
@@ -144,7 +164,7 @@ class Block(nn.Module):
         t = self.relu(t)    # ReLU activation
         t = self.conv2(t)   # 2nd Convolutional Layer
         t = self.bn2(t)     # Batch Normalization
-        t += identity       # Adapting the Identity
+        t += identity       # Identity mapping
         t = self.relu(t)    # ReLU activation
         return t
 
@@ -160,30 +180,33 @@ class Network(nn.Module):
         # Batch Normalization
         self.bn = BatchNorm2d(self.in_channels)
 
-        # Max Pooling with 
+        # Max Pooling
         self.pool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         
         # Residual Architecture
-        self.layer1 = self.create_layers(3, 32, 1)  # Number of Blocks, Intermediate Channels, Stride
-        self.layer2 = self.create_layers(4, 64, 1)
-        self.layer3 = self.create_layers(6, 128, 2)
-        self.layer4 = self.create_layers(3, 256, 2)
+        self.layer1 = self.create_blocks(num_blocks=3, out_channels=32, stride=1)
+        self.layer2 = self.create_blocks(num_blocks=4, out_channels=64, stride=1)
+        self.layer3 = self.create_blocks(num_blocks=6, out_channels=128, stride=2)
+        self.layer4 = self.create_blocks(num_blocks=3, out_channels=256, stride=2)
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(256, 14)    # Output channels to prediction classes
         
-    # Function to create a residual block, with skip connection
-    def create_layers(self, num_blocks, out_channels, stride):
-        layers = []
-        layers.append(Block(self.in_channels, out_channels, stride))
+    
+    def create_blocks(self, num_blocks, out_channels, stride):
+        '''
+        Function to create a residual block, with skip connection
+        '''
+        blocks = []
+        # Downsampling may only occur on the first block of each residual layer
+        blocks.append(Block(self.in_channels, out_channels, stride))
         self.in_channels = out_channels
 
-        # For first resnet layer no identity downsample is needed, since 
-        # stride = 1, and also same amount of channels.
+        # No downsampling on the other blocks
         for _ in range(num_blocks - 1):
-            layers.append(Block(self.in_channels, out_channels))
+            blocks.append(Block(self.in_channels, out_channels))
 
-        return (nn.Sequential(*layers))
+        return (nn.Sequential(*blocks))
     
     def forward(self, t):
         t = self.conv(t)            # 1st Convolutional Layer
